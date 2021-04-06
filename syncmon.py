@@ -7,10 +7,13 @@ import argparse
 import pathlib
 import logging
 import signal
+import time
 import sys
 
-#from slickrpc import Proxy
-#from slickrpc import exc
+from slickrpc import Proxy
+from slickrpc import exc
+
+proxy = Proxy('http://%s:%s@%s' % (settings.rpc_user, settings.rpc_pass, settings.rpc_address))
 
 ################################################################################
 ## SyncMonApp class ############################################################
@@ -26,15 +29,21 @@ class SyncMonApp:
 
 	def run(self):
 
-		pass
+		while True:
+
+			info = proxy.getinfo()
+
+			csv = "%d,%d,%d" % (info['connections'], info['headers'], info['blocks'])
+
+			logging.info(csv)
+
+			time.sleep(60)
 
 ################################################################################
 
 def terminate(signalNumber, frame):
 
-	logging.info('%s received - terminating' % signal.Signals(signalNumber).name)
-
-	raise urwid.ExitMainLoop()
+	sys.exit()
 
 ################################################################################
 ### Main program ###############################################################
@@ -46,34 +55,26 @@ def main():
 
 		raise 'Use Python 3'
 
-	pathlib.Path('data').mkdir(parents=True, exist_ok=True)
+	pathlib.Path(settings.coin_symbol).mkdir(parents=True, exist_ok=True)
 
-	logging.basicConfig(filename = 'data/{:%Y-%m-%d}.csv'.format(datetime.datetime.now()),
-						filemode = 'a',
+	logging.basicConfig(filename = settings.coin_symbol + '/{:%Y-%m-%d}.csv'.format(datetime.datetime.now()),
+						filemode = 'w',
 						level    = logging.INFO,
-						format   = '%(asctime)s - %(levelname)s : %(message)s',
+						format   = '%(asctime)s,%(message)s',
 						datefmt  = '%d/%m/%Y %H:%M:%S')
-
-	logging.info('STARTUP')
 
 	signal.signal(signal.SIGINT,  terminate)  # keyboard interrupt ^C
 	signal.signal(signal.SIGTERM, terminate)  # kill [default -15]
 
-	argparser = argparse.ArgumentParser(description='Simply blockchain sync monitor')
-
-	#argparser.add_argument('-n', '--name'  , action='store', help='nickname    (local)' , type=str, default = ''       , required=True)
-	#argparser.add_argument('-o', '--other' , action='store', help='nickname    (remote)', type=str, default = '[other]', required=False)
-	#argparser.add_argument('-t', '--tag'   , action='store', help='routing tag (remote)', type=str, default = ''       , required=True)
+	argparser = argparse.ArgumentParser(description='Simple blockchain sync monitor')
 
 	command_line_args = argparser.parse_args()
 
-	logging.info('Arguments %s', vars(command_line_args))
+	#logging.info('Arguments %s', vars(command_line_args))
 
 	app = SyncMonApp()
 
 	app.run()
-
-	logging.info('SHUTDOWN')
 
 ################################################################################
 
